@@ -32,11 +32,10 @@ struct TickerView: View {
                 } else {
                     TimelineView(.animation) { timeline in
                         styledText
-                            .offset(x: 24 - effectiveOffset(
-                                cursorX: cursorX,
-                                width: width,
-                                now: timeline.date
-                            ))
+                            .offset(x: 24 - scrollOffset)
+                            .onChange(of: timeline.date) { _, now in
+                                advanceScroll(cursorX: cursorX, width: width, now: now)
+                            }
                     }
                 }
             }
@@ -97,33 +96,31 @@ struct TickerView: View {
         return Text(attributed).font(Self.font)
     }
 
-    private func effectiveOffset(
-        cursorX: CGFloat, width: CGFloat, now: Date
-    ) -> CGFloat {
+    /// Rückt die Scrollposition pro Animationsframe Richtung Ziel — im
+    /// onChange-Handler, damit während des Renderings kein State mutiert wird.
+    private func advanceScroll(cursorX: CGFloat, width: CGFloat, now: Date) {
+        defer { lastFrameTime = now }
+
         if TickerPacing.isJumpMode(level: speedLevel) {
             // Stehender Text: springt blockweise, sobald der Cursor
             // das letzte Drittel erreicht.
             let usable = width * 0.62
             let block = (cursorX / usable).rounded(.down)
-            return block * usable
+            scrollOffset = block * usable
+            return
         }
         // Kontinuierlich: dem Cursor hinterherscrollen; je größer der
         // Rückstand, desto schneller (adaptives Aufholen).
         let target = max(0, cursorX - width * 0.38)
         let gap = target - scrollOffset
-        defer { lastFrameTime = now }
-        guard let last = lastFrameTime else { return scrollOffset }
+        guard let last = lastFrameTime else { return }
         let dt = now.timeIntervalSince(last)
-        guard dt > 0, abs(gap) > 0.5 else { return scrollOffset }
+        guard dt > 0, abs(gap) > 0.5 else { return }
 
         let base = TickerPacing.baseInterval(forLevel: max(1, speedLevel))
         let interval = TickerPacing.interval(base: base, gapToCursor: Int(abs(gap)))
         let pixelsPerSecond = 1000.0 / Double(max(1, interval))
         let step = CGFloat(pixelsPerSecond * dt)
-
-        Task { @MainActor in
-            scrollOffset += gap > 0 ? min(step, gap) : max(-step, gap)
-        }
-        return scrollOffset
+        scrollOffset += gap > 0 ? min(step, gap) : max(-step, gap)
     }
 }

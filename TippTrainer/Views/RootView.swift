@@ -89,16 +89,26 @@ struct RootView: View {
         guard autoType else { return }
         let session = training.session
         session.handleKey(.character(" "))
+        let full = ProcessInfo.processInfo.arguments.contains("--auto-full")
+        let maxKeys = full ? 5000 : 8
         var typed = 0
-        while typed < 8, let expected = session.currentCharacter {
+        while typed < maxKeys, let expected = session.currentCharacter,
+            session.state == .running {
+            // Bei --auto-full alle 30 Zeichen absichtlich einen Fehler tippen.
+            if full, typed > 0, typed % 30 == 0, expected != DictationToken.newline {
+                session.handleKey(.character("q"))
+            }
             switch expected {
             case DictationToken.newline: session.handleKey(.enter)
             case DictationToken.tab: session.handleKey(.tab)
             default: session.handleKey(.character(expected))
             }
+            if full { session.tick() } // Zeit vorspulen für A/min und Limit
             typed += 1
         }
-        session.handleKey(.character("q")) // ein absichtlicher Fehler
+        if !full {
+            session.handleKey(.character("q")) // ein absichtlicher Fehler
+        }
     }
 
     /// Beispieldaten für die visuelle Verifikation der Statistik.
