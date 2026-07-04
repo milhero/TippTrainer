@@ -36,6 +36,20 @@ struct CharacterStats {
         entries[character]?.mistakes ?? 0
     }
 
+    /// Vereinigt zwei Statistiken (z. B. Baseline + aktuelle Sitzung),
+    /// ohne eine von beiden zu verändern.
+    func merged(with other: CharacterStats) -> CharacterStats {
+        var result = self
+        for (character, entry) in other.entries {
+            var combined = result.entries[character] ?? Entry()
+            combined.occurrences += entry.occurrences
+            combined.targetErrors += entry.targetErrors
+            combined.mistakes += entry.mistakes
+            result.entries[character] = combined
+        }
+        return result
+    }
+
     /// Die fehlerträchtigsten Zeichen, absteigend nach Fehlerquote.
     /// Zeichen ohne Zielfehler tauchen nicht auf.
     func worstCharacters(limit: Int = 4) -> [Character] {

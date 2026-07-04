@@ -70,14 +70,20 @@ final class TrainingSession {
     private var oneErrorFlag = false
     private var lineLength = 0
 
+    /// Fehlerwissen aus früheren Sitzungen — fließt in die Intelligenz ein,
+    /// wird aber nicht erneut gespeichert (nur `characterStats` = Delta).
+    private let baselineStats: CharacterStats
+
     init(
         segments: [TextSegment],
         unit: LessonUnit,
         configuration: TrainingConfiguration,
+        initialStats: CharacterStats = CharacterStats(),
         seed: UInt64 = UInt64.random(in: UInt64.min...UInt64.max)
     ) {
         self.unit = unit
         self.configuration = configuration
+        self.baselineStats = initialStats
         self.picker = SegmentPicker(
             segments: segments,
             intelligence: configuration.intelligence,
@@ -232,7 +238,9 @@ final class TrainingSession {
             configuration.intelligence,
             dictationCharacters.count - cursorIndex
                 <= DictationToken.charactersUntilRefresh,
-            let next = picker.nextSegment(stats: characterStats)
+            let next = picker.nextSegment(
+                stats: baselineStats.merged(with: characterStats)
+            )
         else { return }
         appendSegment(next.text)
     }

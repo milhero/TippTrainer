@@ -1,7 +1,7 @@
 import Foundation
 
 /// Kennzahlen einer Trainingseinheit.
-enum Scorer {
+nonisolated enum Scorer {
     /// Punkteformel des klassischen Trainers:
     /// ((Anschläge − 20 × Fehler) / Minuten) × 0,4, kaufmännisch gerundet.
     static func points(strokes: Int, errors: Int, seconds: Int) -> Int {

@@ -11,12 +11,27 @@ struct AssistanceOptions {
     var showStatusHints = true
 }
 
+/// Beschreibt eine zu startende Trainingseinheit — unabhängig davon, ob
+/// es eine Übungs-, freie oder eigene Lektion ist.
+struct TrainingRequest {
+    let title: String
+    let language: LessonLanguage
+    let unit: LessonUnit
+    let kind: LessonKind
+    let intro: String
+    let segments: [String]
+    let configuration: TrainingConfiguration
+    let assistance: AssistanceOptions
+    let tickerSpeedLevel: Int
+}
+
 /// Bindeglied zwischen Trainings-Engine und SwiftUI.
 @Observable
 final class TrainingViewModel {
     let lessonTitle: String
     let language: LessonLanguage
     let unit: LessonUnit
+    let kind: LessonKind
     let layout: KeyboardModel
     let assistance: AssistanceOptions
     let tickerSpeedLevel: Int
@@ -28,31 +43,31 @@ final class TrainingViewModel {
     private var timer: Timer?
 
     init(
-        lesson: PracticeLesson,
-        language: LessonLanguage,
-        configuration: TrainingConfiguration,
-        assistance: AssistanceOptions = AssistanceOptions(),
-        tickerSpeedLevel: Int = TickerPacing.defaultLevel,
-        beepOnError: Bool = true
+        request: TrainingRequest,
+        settings: AppSettings? = nil,
+        initialStats: CharacterStats = CharacterStats()
     ) {
-        self.lessonTitle = lesson.title
-        self.language = language
-        self.unit = lesson.unit
-        self.layout = KeyboardModel.layout(for: language)
-        self.assistance = assistance
-        self.tickerSpeedLevel = tickerSpeedLevel
+        self.lessonTitle = request.title
+        self.language = request.language
+        self.unit = request.unit
+        self.kind = request.kind
+        self.layout = KeyboardModel.layout(for: request.language)
+        self.assistance = request.assistance
+        self.tickerSpeedLevel = request.tickerSpeedLevel
 
-        var segments = lesson.segments.enumerated().map {
+        var segments = request.segments.enumerated().map {
             TextSegment(id: $0.offset + 1, text: $0.element)
         }
-        if !lesson.intro.isEmpty {
-            segments.insert(TextSegment(id: 0, text: lesson.intro), at: 0)
+        if !request.intro.isEmpty {
+            segments.insert(TextSegment(id: 0, text: request.intro), at: 0)
         }
         session = TrainingSession(
             segments: segments,
-            unit: lesson.unit,
-            configuration: configuration
+            unit: request.unit,
+            configuration: request.configuration,
+            initialStats: initialStats
         )
+        let beepOnError = request.configuration.beepOnError
         session.onError = { [weak self] in
             guard let self else { return }
             if beepOnError { NSSound.beep() }
