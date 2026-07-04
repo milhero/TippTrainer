@@ -7,6 +7,7 @@ struct HomeView: View {
     let onStart: (TrainingRequest) -> Void
 
     @Environment(AppSettings.self) private var settings
+    @Environment(\.modelContext) private var modelContext
     @Query(sort: \OwnLesson.createdAt, order: .reverse) private var ownLessons: [OwnLesson]
 
     @State private var category: Category = .practice
@@ -151,6 +152,8 @@ struct HomeView: View {
                     startOwn(lesson)
                 } onEdit: {
                     editingOwnLesson = lesson
+                } onDelete: {
+                    modelContext.delete(lesson)
                 }
             }
         }
@@ -248,6 +251,7 @@ private struct LessonCard: View {
     let icon: String
     let onStart: () -> Void
     var onEdit: (() -> Void)?
+    var onDelete: (() -> Void)?
 
     var body: some View {
         Button(action: onStart) {
@@ -283,6 +287,9 @@ private struct LessonCard: View {
         .contextMenu {
             if let onEdit {
                 Button("Bearbeiten", systemImage: "pencil", action: onEdit)
+            }
+            if let onDelete {
+                Button("Löschen", systemImage: "trash", role: .destructive, action: onDelete)
             }
         }
     }
