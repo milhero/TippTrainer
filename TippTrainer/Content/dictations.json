@@ -1,0 +1,201 @@
+[
+  {
+    "id": "wandrers-nachtlied",
+    "title": "Wandrers Nachtlied",
+    "summary": "Ein Gedicht (Johann Wolfgang von Goethe, 1780)",
+    "theme": "poetry",
+    "language": "de",
+    "unit": "sentence",
+    "segments": [
+      "Über allen Gipfeln",
+      "ist Ruh,",
+      "in allen Wipfeln",
+      "spürest du",
+      "kaum einen Hauch;",
+      "die Vögelein schweigen im Walde.",
+      "Warte nur, balde",
+      "ruhest du auch."
+    ]
+  },
+  {
+    "id": "abendlied",
+    "title": "Abendlied",
+    "summary": "Die erste Strophe (Matthias Claudius, 1779)",
+    "theme": "poetry",
+    "language": "de",
+    "unit": "sentence",
+    "segments": [
+      "Der Mond ist aufgegangen,",
+      "die goldnen Sternlein prangen",
+      "am Himmel hell und klar;",
+      "der Wald steht schwarz und schweiget,",
+      "und aus den Wiesen steiget",
+      "der weiße Nebel wunderbar."
+    ]
+  },
+  {
+    "id": "mondnacht",
+    "title": "Mondnacht",
+    "summary": "Ein Gedicht (Joseph von Eichendorff, 1837)",
+    "theme": "poetry",
+    "language": "de",
+    "unit": "sentence",
+    "segments": [
+      "Es war, als hätt' der Himmel",
+      "die Erde still geküsst,",
+      "dass sie im Blütenschimmer",
+      "von ihm nun träumen müsst'.",
+      "Die Luft ging durch die Felder,",
+      "die Ähren wogten sacht,",
+      "es rauschten leis die Wälder,",
+      "so sternklar war die Nacht."
+    ]
+  },
+  {
+    "id": "tastatur-technik",
+    "title": "Wie eine Tastatur funktioniert",
+    "summary": "Ein kurzer Blick unter die Tasten (TippTrainer, 2026)",
+    "theme": "technology",
+    "language": "de",
+    "unit": "sentence",
+    "segments": [
+      "Unter jeder Taste einer modernen Tastatur sitzt ein kleiner Schalter.",
+      "Wird eine Taste gedrückt, schließt der Schalter einen Stromkreis.",
+      "Ein winziger Chip in der Tastatur bemerkt diesen Kontakt sofort.",
+      "Er übersetzt den Tastendruck in einen Zahlencode und schickt ihn an den Rechner.",
+      "Das Betriebssystem verwandelt den Code in das passende Zeichen.",
+      "All das geschieht in wenigen Tausendstelsekunden.",
+      "Wer blind schreibt, nutzt diese Geschwindigkeit optimal aus.",
+      "Die Finger finden ihre Tasten dann ganz ohne Blick auf die Tastatur.",
+      "Genau dafür trainierst du hier: Muskelgedächtnis statt Suchen."
+    ]
+  },
+  {
+    "id": "schreibmaschine",
+    "title": "Die Schreibmaschine",
+    "summary": "Warum die Tasten so angeordnet sind (TippTrainer, 2026)",
+    "theme": "knowledge",
+    "language": "de",
+    "unit": "sentence",
+    "segments": [
+      "Die ersten Schreibmaschinen wurden im 19. Jahrhundert gebaut.",
+      "Ihre Typenhebel verhakten sich, wenn man zu schnell tippte.",
+      "Deshalb ordnete man häufige Buchstabenpaare weit auseinander an.",
+      "So entstand die Tastenbelegung, die wir bis heute verwenden.",
+      "Auf deutschen Tastaturen tauschten Z und Y später die Plätze.",
+      "Denn im Deutschen kommt das Z viel häufiger vor als das Y.",
+      "Die Schreibmaschine verschwand, doch ihre Tastenordnung blieb.",
+      "Wer das Zehnfingersystem beherrscht, macht aus der alten Ordnung Tempo."
+    ]
+  },
+  {
+    "id": "richtig-sitzen",
+    "title": "Richtig sitzen, besser tippen",
+    "summary": "Ergonomie am Schreibtisch (TippTrainer, 2026)",
+    "theme": "health",
+    "language": "de",
+    "unit": "sentence",
+    "segments": [
+      "Eine gute Haltung ist die halbe Miete beim Tippen.",
+      "Stelle beide Füße flach auf den Boden und sitze aufrecht.",
+      "Ober- und Unterarm bilden am besten einen rechten Winkel.",
+      "Die Handgelenke schweben locker über der Tastatur.",
+      "Der Bildschirm steht eine Armlänge entfernt auf Augenhöhe.",
+      "Alle dreißig Minuten lohnt sich eine kurze Pause.",
+      "Strecke dich, schüttle die Hände aus und blicke in die Ferne.",
+      "Entspannte Muskeln tippen schneller und machen weniger Fehler.",
+      "Dein Rücken wird es dir nach jedem Training danken."
+    ]
+  },
+  {
+    "id": "igel-ferdinand",
+    "title": "Der kleine Igel Ferdinand",
+    "summary": "Eine Gutenachtgeschichte (TippTrainer, 2026)",
+    "theme": "kids",
+    "language": "de",
+    "unit": "sentence",
+    "segments": [
+      "Der kleine Igel Ferdinand wohnte unter einer alten Gartenbank.",
+      "Jeden Abend zählte er die Sterne über dem Apfelbaum.",
+      "Eines Nachts fehlte sein Lieblingsstern am Himmel.",
+      "Mutig machte sich Ferdinand auf die Suche nach ihm.",
+      "Er fragte die Eule, den Maulwurf und die graue Katze.",
+      "Niemand hatte den kleinen Stern gesehen.",
+      "Da entdeckte er ihn: Der Stern spiegelte sich im Gartenteich.",
+      "Ferdinand lachte und rollte sich zufrieden zusammen.",
+      "Manchmal liegt das Gesuchte näher, als man denkt."
+    ]
+  },
+  {
+    "id": "warum-himmel-blau",
+    "title": "Warum ist der Himmel blau?",
+    "summary": "Eine kleine Physikstunde (TippTrainer, 2026)",
+    "theme": "knowledge",
+    "language": "de",
+    "unit": "sentence",
+    "segments": [
+      "Das Licht der Sonne wirkt weiß, doch es steckt voller Farben.",
+      "Trifft es auf die Luft, wird es an winzigen Teilchen gestreut.",
+      "Blaues Licht wird dabei viel stärker gestreut als rotes.",
+      "Darum leuchtet der Himmel am Tag in kräftigem Blau.",
+      "Am Abend legt das Licht einen weiteren Weg durch die Luft zurück.",
+      "Das Blau verliert sich unterwegs, und Rot und Orange bleiben übrig.",
+      "So entsteht das warme Farbenspiel der Abendsonne.",
+      "Der Himmel ist also ein riesiges Experiment aus Licht und Luft."
+    ]
+  },
+  {
+    "id": "hare-and-tortoise",
+    "title": "The Hare and the Tortoise",
+    "summary": "A fable after Aesop, retold (TippTrainer, 2026)",
+    "theme": "english",
+    "language": "en",
+    "unit": "sentence",
+    "segments": [
+      "A hare once laughed at a tortoise for being slow.",
+      "The tortoise calmly offered a race to the old oak tree.",
+      "The hare sprinted ahead and soon left the tortoise far behind.",
+      "Certain of victory, the hare lay down for a little nap.",
+      "The tortoise walked on, step by steady step.",
+      "When the hare awoke, the tortoise was crossing the finish line.",
+      "All the animals of the meadow cheered the quiet winner.",
+      "Slow and steady wins the race, now as much as ever."
+    ]
+  },
+  {
+    "id": "walk-through-london",
+    "title": "A Walk through London",
+    "summary": "A little city tour in English (TippTrainer, 2026)",
+    "theme": "english",
+    "language": "en",
+    "unit": "sentence",
+    "segments": [
+      "Our walk begins at the river Thames on a misty morning.",
+      "Big Ben rises above the rooftops and strikes nine times.",
+      "Red buses roll across the bridge in a slow parade.",
+      "We buy warm scones in a small bakery near the market.",
+      "Street musicians play old songs under the arches.",
+      "In the park, squirrels chase each other around the benches.",
+      "By sunset, the lights of the city begin to sparkle.",
+      "Tired but happy, we plan our next visit on the train home."
+    ]
+  },
+  {
+    "id": "katzen-schnurren",
+    "title": "Warum Katzen schnurren",
+    "summary": "Ein Rätsel der Tierwelt (TippTrainer, 2026)",
+    "theme": "kids",
+    "language": "de",
+    "unit": "sentence",
+    "segments": [
+      "Katzen schnurren nicht nur, wenn sie zufrieden sind.",
+      "Auch bei Angst oder Schmerz beginnt das leise Brummen.",
+      "Forscher vermuten: Das Schnurren beruhigt die Katze selbst.",
+      "Die Schwingungen entstehen tief im Kehlkopf des Tieres.",
+      "Sie liegen in einem Bereich, der sogar Knochen kräftigen kann.",
+      "Eine schnurrende Katze auf dem Schoß entspannt auch uns Menschen.",
+      "Der Puls wird ruhiger, der Atem tiefer.",
+      "Vielleicht ist das Schnurren die älteste Wellnesskur der Welt."
+    ]
+  }
+]
