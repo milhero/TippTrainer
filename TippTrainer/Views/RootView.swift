@@ -41,6 +41,9 @@ struct RootView: View {
     /// `--screen statistics|game` öffnet direkt einen Bereich.
     private func autoStartForScreenshotIfRequested() {
         let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("--seed-demo") {
+            seedDemoData()
+        }
         if let screenIndex = arguments.firstIndex(of: "--screen"),
             arguments.indices.contains(screenIndex + 1) {
             switch arguments[screenIndex + 1] {
@@ -96,6 +99,37 @@ struct RootView: View {
             typed += 1
         }
         session.handleKey(.character("q")) // ein absichtlicher Fehler
+    }
+
+    /// Beispieldaten für die visuelle Verifikation der Statistik.
+    private func seedDemoData() {
+        guard (try? modelContext.fetchCount(FetchDescriptor<LessonRecord>())) == 0 else {
+            return
+        }
+        let store = StatisticsStore(context: modelContext)
+        let samples: [(title: String, strokes: Int, errors: Int, seconds: Int)] = [
+            ("Lektion 1: asdf jklö", 210, 4, 300),
+            ("Lektion 2: e n", 250, 3, 300),
+            ("Lektion 3: r i", 268, 5, 300),
+            ("Wandrers Nachtlied", 240, 2, 240),
+            ("Lektion 4: t h", 292, 3, 300),
+        ]
+        for sample in samples {
+            var stats = CharacterStats()
+            for character in "die schule faehrt weit" { stats.recordOccurrence(character) }
+            for character in "cxq" {
+                stats.recordOccurrence(character)
+                stats.recordTargetError(character)
+            }
+            let kind: LessonKind = sample.title.hasPrefix("Lektion") ? .practice : .dictation
+            store.save(
+                lessonTitle: sample.title, language: .german, kind: kind,
+                strokes: sample.strokes, errors: sample.errors,
+                characters: sample.strokes + sample.errors, seconds: sample.seconds,
+                characterStats: stats
+            )
+        }
+        try? modelContext.save()
     }
 
     private var navigationShell: some View {
