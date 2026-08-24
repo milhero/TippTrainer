@@ -46,6 +46,7 @@ struct RainGameView: View {
         HStack(spacing: 24) {
             label("Punkte", "\(engine.score)", "star.fill")
             label("Level", "\(engine.level)", "chart.line.uptrend.xyaxis")
+            label("Fehler", "\(engine.errors)", "exclamationmark.triangle")
             Spacer()
             HStack(spacing: 4) {
                 ForEach(0..<3, id: \.self) { index in

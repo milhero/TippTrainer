@@ -18,6 +18,11 @@ final class RainGameEngine {
     private(set) var score = 0
     private(set) var level = 1
     private(set) var lives = 3
+    /// Anschläge, die keinen fallenden Buchstaben getroffen haben.
+    private(set) var errors = 0
+
+    /// Punktabzug je Fehlanschlag.
+    static let errorPenalty = 5
     private(set) var state: RainGameState = .ready
 
     private let pool: [Character]
@@ -39,6 +44,7 @@ final class RainGameEngine {
         score = 0
         level = 1
         lives = 3
+        errors = 0
         state = .running
     }
 
@@ -59,14 +65,21 @@ final class RainGameEngine {
     }
 
     /// Verarbeitet einen Tastenanschlag. Trifft den bodennächsten
-    /// passenden Buchstaben. Gibt zurück, ob getroffen wurde.
+    /// passenden Buchstaben. Gibt zurück, ob getroffen wurde. Ein Anschlag
+    /// ohne Treffer zählt als Fehler und kostet Punkte (nie unter null);
+    /// Leben kosten nur verpasste Buchstaben.
     @discardableResult
     func type(_ character: Character) -> Bool {
         guard state == .running else { return false }
         let candidates = drops.enumerated()
             .filter { $0.element.character == character }
             .sorted { $0.element.y > $1.element.y }
-        guard let target = candidates.first else { return false }
+        guard let target = candidates.first else {
+            errors += 1
+            score = max(0, score - Self.errorPenalty)
+            updateLevel()
+            return false
+        }
         drops.remove(at: target.offset)
         score += 10
         updateLevel()
