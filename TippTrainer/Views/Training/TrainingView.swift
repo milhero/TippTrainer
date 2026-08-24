@@ -45,7 +45,11 @@ struct TrainingView: View {
             statusBar
         }
         .padding(24)
-        .frame(minWidth: 860, minHeight: 560)
+        .frame(
+            minWidth: 860, maxWidth: .infinity,
+            minHeight: 560, maxHeight: .infinity,
+            alignment: .top
+        )
         .background(Color(nsColor: .windowBackgroundColor))
         .focusable()
         .focused($isFocused)

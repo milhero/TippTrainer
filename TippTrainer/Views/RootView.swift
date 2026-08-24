@@ -155,7 +155,13 @@ struct RootView: View {
                 RainGameView()
             }
         }
-        .frame(minWidth: 940, minHeight: 660)
+        // Der Inhalt muss die volle Höhe einnehmen, sonst zentriert der
+        // Frame den Stapel und die Auswahlleiste rutscht zur Fenstermitte.
+        .frame(
+            minWidth: 940, maxWidth: .infinity,
+            minHeight: 660, maxHeight: .infinity,
+            alignment: .top
+        )
         .background(Color(nsColor: .windowBackgroundColor))
     }
 
