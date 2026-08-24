@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 
 /// Sonderzeichen im Diktattext.
 enum DictationToken {
@@ -45,7 +46,10 @@ enum SessionState: Equatable {
 
 /// Der UI-freie Kern einer Trainingseinheit: verwaltet Diktattext,
 /// Schreibposition, Fehlerregeln, Zeit- und Zeichenlimits sowie die
-/// Zeichenstatistik für die Intelligenz-Funktion.
+/// Zeichenstatistik für die Intelligenz-Funktion. `@Observable`, weil die
+/// Trainingsansicht den Sitzungszustand direkt liest — sonst zeichnet
+/// SwiftUI nach einem Anschlag nicht neu.
+@Observable
 final class TrainingSession {
     let unit: LessonUnit
     let configuration: TrainingConfiguration

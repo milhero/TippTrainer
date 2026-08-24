@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 import Testing
 @testable import TippTrainer
 
@@ -296,6 +297,44 @@ struct TrainingSessionTests {
         #expect(session.dictationText.count > initialLength)
     }
 
+    @Test func stateChangesAreObservable() {
+        let session = makeSession(segments: ["abc", "def"])
+        let notified = ChangeFlag()
+        withObservationTracking {
+            _ = session.state
+        } onChange: {
+            notified.raise()
+        }
+        session.handleKey(.character(" "))
+        #expect(notified.wasRaised) // sonst zeichnet die Ansicht nicht neu
+    }
+
+    @Test func cursorChangesAreObservable() {
+        let session = makeSession(segments: ["abc", "def"])
+        session.handleKey(.character(" "))
+        let notified = ChangeFlag()
+        withObservationTracking {
+            _ = session.cursorIndex
+        } onChange: {
+            notified.raise()
+        }
+        session.handleKey(.character("a"))
+        #expect(notified.wasRaised)
+    }
+
+    @Test func elapsedSecondsAreObservable() {
+        let session = makeSession(segments: ["abc", "def"])
+        session.handleKey(.character(" "))
+        let notified = ChangeFlag()
+        withObservationTracking {
+            _ = session.elapsedSeconds
+        } onChange: {
+            notified.raise()
+        }
+        session.tick()
+        #expect(notified.wasRaised)
+    }
+
     @Test func pauseSuspendsTimeAndInput() {
         let session = makeSession(segments: ["abc", "def"])
         session.handleKey(.character(" "))
@@ -331,4 +370,12 @@ struct TickerPacingTests {
         #expect(TickerPacing.interval(base: base, gapToCursor: 75) == 15)
         #expect(TickerPacing.interval(base: base, gapToCursor: 120) == 6)
     }
+}
+
+/// Testhilfe: threadsicherer Merker, da `onChange` `@Sendable` ist.
+private nonisolated final class ChangeFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var raised = false
+    func raise() { lock.lock(); raised = true; lock.unlock() }
+    var wasRaised: Bool { lock.lock(); defer { lock.unlock() }; return raised }
 }
