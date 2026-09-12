@@ -17,6 +17,7 @@ struct TippTrainerApp: App {
             RootView()
                 .environment(settings)
                 .environment(navigation)
+                .onAppear { settings.startObservingKeyboardLayout() }
         }
         .modelContainer(container)
         .commands {

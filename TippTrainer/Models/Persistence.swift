@@ -54,6 +54,13 @@ final class LessonRecord {
     var kind: LessonKind { LessonKind(rawValue: kindRaw) ?? .practice }
     var language: LessonLanguage { LessonLanguage(rawValue: languageRaw) ?? .german }
 
+    /// Lektionsnummer aus einem Titel »Lektion 3: …«, sonst `nil`. Titel von
+    /// Übungslektionen dürfen sich ändern; die Nummer bleibt der Schlüssel.
+    static func lessonNumber(inTitle title: String) -> Int? {
+        guard title.hasPrefix("Lektion ") else { return nil }
+        return Int(title.dropFirst("Lektion ".count).prefix { $0.isNumber })
+    }
+
     var strokesPerMinute: Int {
         Int(Scorer.strokesPerMinute(strokes: strokes, seconds: seconds))
     }

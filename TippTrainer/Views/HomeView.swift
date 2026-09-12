@@ -38,6 +38,12 @@ struct HomeView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             header
+            if let warning = settings.layoutWarning {
+                Label(warning, systemImage: "exclamationmark.triangle.fill")
+                    .font(.callout)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
             Picker("", selection: $category) {
                 ForEach(Category.allCases, id: \.self) { Text($0.label).tag($0) }
@@ -65,27 +71,47 @@ struct HomeView: View {
 
     private var header: some View {
         @Bindable var settings = settings
-        return HStack(alignment: .firstTextBaseline, spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
                 Text("Was möchtest du üben?")
                     .font(.title.bold())
-                Text("Wähle eine Lektion und leg los.")
+                    .lineLimit(1)
+                    .fixedSize()
+                Spacer()
+                Button {
+                    navigation.showSettings(.training)
+                } label: {
+                    Label(optionsSummary, systemImage: "slider.horizontal.3")
+                }
+                .help("Trainingsoptionen ändern")
+            }
+            HStack(spacing: 10) {
+                Label(layoutLabel, systemImage: "keyboard")
                     .foregroundStyle(.secondary)
+                Picker("Tastaturlayout", selection: $settings.layoutChoice) {
+                    Text("Automatisch erkennen").tag(KeyboardLayoutChoice.automatic)
+                    Text(LessonLanguage.german.layoutName).tag(KeyboardLayoutChoice.german)
+                    Text(LessonLanguage.english.layoutName).tag(KeyboardLayoutChoice.english)
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+                .controlSize(.small)
+                .fixedSize()
+                .help("Tastaturlayout: bestimmt Übungslektionen, virtuelle Tastatur und Fingerhinweise")
+                Spacer()
             }
-            Spacer()
-            Picker("Sprache", selection: $settings.language) {
-                Text("Deutsch").tag(LessonLanguage.german)
-                Text("English").tag(LessonLanguage.english)
-            }
-            .pickerStyle(.segmented)
-            .fixedSize()
-            Button {
-                navigation.showSettings(.training)
-            } label: {
-                Label(optionsSummary, systemImage: "slider.horizontal.3")
-            }
-            .help("Trainingsoptionen ändern")
         }
+    }
+
+    /// »Tastatur: Deutsch (QWERTZ), erkannt« — die Übungen folgen dem Layout.
+    private var layoutLabel: String {
+        var label = "Tastatur: \(settings.language.layoutName)"
+        switch settings.layoutChoice {
+        case .automatic where settings.detectedLayout != nil: label += ", erkannt"
+        case .automatic: label += ", Standard"
+        case .german, .english: label += ", fest gewählt"
+        }
+        return label
     }
 
     /// Die aktiven Trainingsoptionen auf einen Blick — der Knopf führt
@@ -125,6 +151,7 @@ struct HomeView: View {
                         title: lesson.title,
                         subtitle: lesson.subtitle,
                         icon: icon(for: lesson.unit),
+                        keys: lesson.newCharacters,
                         progress: progress[lesson.number],
                         isRecommended: lesson.number == recommended?.number
                     ) {
@@ -151,10 +178,8 @@ struct HomeView: View {
         return result
     }
 
-    /// Lektionsnummer aus dem gespeicherten Titel »Lektion 3: r i«.
     static func lessonNumber(in title: String) -> Int? {
-        guard title.hasPrefix("Lektion ") else { return nil }
-        return Int(title.dropFirst("Lektion ".count).prefix { $0.isNumber })
+        LessonRecord.lessonNumber(inTitle: title)
     }
 
     /// Die erste noch nicht absolvierte Lektion; sind alle absolviert, die
@@ -236,6 +261,7 @@ struct HomeView: View {
     private func startDictation(_ dictation: Dictation) {
         onStart(TrainingRequest(
             title: dictation.title,
+            layout: settings.language,
             language: dictation.language,
             unit: dictation.unit,
             kind: .dictation,
@@ -251,6 +277,7 @@ struct HomeView: View {
         let lines = lesson.lines
         onStart(TrainingRequest(
             title: lesson.title.isEmpty ? "Eigene Lektion" : lesson.title,
+            layout: settings.language,
             language: settings.language,
             unit: lesson.isSentenceMode ? .sentence : .word,
             kind: .own,
@@ -364,12 +391,13 @@ private struct RecommendationCard: View {
 /// Kleine Tastenkappe für die Anzeige neuer Zeichen.
 struct KeyChip: View {
     let character: Character
+    var compact = false
 
     var body: some View {
         Text(character == " " ? "␣" : String(character))
-            .font(.system(.callout, design: .rounded).weight(.semibold))
-            .frame(minWidth: 26, minHeight: 26)
-            .padding(.horizontal, 3)
+            .font(.system(compact ? .caption : .callout, design: .rounded).weight(.semibold))
+            .frame(minWidth: compact ? 20 : 26, minHeight: compact ? 20 : 26)
+            .padding(.horizontal, compact ? 2 : 3)
             .background(
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
                     .fill(.background.secondary)
@@ -387,6 +415,8 @@ private struct LessonCard: View {
     let title: String
     let subtitle: String
     let icon: String
+    /// Neue Zeichen der Lektion, als Tastenkappen dargestellt.
+    var keys: String?
     var progress: HomeView.LessonProgress?
     var isRecommended = false
     let onStart: () -> Void
@@ -417,6 +447,17 @@ private struct LessonCard: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                if let keys, !keys.isEmpty {
+                    HStack(spacing: 4) {
+                        ForEach(Array(keys.prefix(7).enumerated()), id: \.offset) { _, character in
+                            KeyChip(character: character, compact: true)
+                        }
+                        if keys.count > 7 {
+                            Text("…").font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.top, 2)
+                }
                 if let progress {
                     Spacer(minLength: 2)
                     HStack(spacing: 4) {
@@ -429,7 +470,7 @@ private struct LessonCard: View {
                 }
             }
             .padding(14)
-            .frame(maxWidth: .infinity, minHeight: 104, alignment: .topLeading)
+            .frame(maxWidth: .infinity, minHeight: 128, alignment: .topLeading)
             .background(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .fill(.background.secondary)

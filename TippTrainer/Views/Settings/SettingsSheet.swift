@@ -73,6 +73,27 @@ private struct TrainingSettingsTab: View {
         @Bindable var settings = settings
         Form {
             Section {
+                Picker("Layout", selection: $settings.layoutChoice) {
+                    Text("Automatisch erkennen").tag(KeyboardLayoutChoice.automatic)
+                    Text(LessonLanguage.german.layoutName).tag(KeyboardLayoutChoice.german)
+                    Text(LessonLanguage.english.layoutName).tag(KeyboardLayoutChoice.english)
+                }
+                LabeledContent("Erkannt", value: settings.detectedLayoutName.isEmpty
+                    ? "–"
+                    : "\(settings.detectedLayoutName)"
+                        + (settings.detectedLayout.map { " → \($0.layoutName)" } ?? " (nicht unterstützt)"))
+                if let warning = settings.layoutWarning {
+                    Label(warning, systemImage: "exclamationmark.triangle")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
+            } header: {
+                Text("Tastatur")
+            } footer: {
+                Text("Die Übungslektionen, die virtuelle Tastatur und die Fingerhinweise richten sich nach dem Layout, das vor dir liegt. Aktiv: \(settings.language.layoutName).")
+            }
+
+            Section {
                 Picker("Begrenzung", selection: $settings.limitKind) {
                     Text("Zeitlimit").tag(AppSettings.LimitKind.time)
                     Text("Zeichenlimit").tag(AppSettings.LimitKind.characters)

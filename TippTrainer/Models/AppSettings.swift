@@ -1,6 +1,21 @@
 import Foundation
 import Observation
 
+/// Wahl des Tastaturlayouts: automatisch vom System übernommen oder fest.
+enum KeyboardLayoutChoice: String, CaseIterable {
+    case automatic, german, english
+}
+
+extension LessonLanguage {
+    /// Anzeigename des zugehörigen Tastaturlayouts.
+    var layoutName: String {
+        switch self {
+        case .german: "Deutsch (QWERTZ)"
+        case .english: "US-Englisch (QWERTY)"
+        }
+    }
+}
+
 /// Zentrale, persistente App-Einstellungen.
 ///
 /// Die Werte sind gewöhnliche beobachtbare Eigenschaften, die sich bei jeder
@@ -15,10 +30,26 @@ final class AppSettings {
     }
 
     @ObservationIgnored private let defaults: UserDefaults
+    @ObservationIgnored private var layoutObserver: NSObjectProtocol?
 
-    // Sprache / Layout
+    // Tastatur
+    var layoutChoice: KeyboardLayoutChoice {
+        didSet { defaults.set(layoutChoice.rawValue, forKey: "keyboardLayout") }
+    }
+    /// Vom System erkanntes Layout (`nil`: nicht unterstützt oder unbekannt).
+    private(set) var detectedLayout: LessonLanguage?
+    /// Anzeigename der erkannten Eingabequelle, z. B. »German«.
+    private(set) var detectedLayoutName = ""
+
+    /// Das wirksame Tastaturlayout. Es bestimmt die Übungslektionen, die
+    /// virtuelle Tastatur und die Fingerhinweise — die Übungen müssen zur
+    /// Tastatur passen, die vor dem Nutzer liegt.
     var language: LessonLanguage {
-        didSet { defaults.set(language.rawValue, forKey: "lessonLanguage") }
+        switch layoutChoice {
+        case .automatic: detectedLayout ?? .german
+        case .german: .german
+        case .english: .english
+        }
     }
 
     // Laufschrift
@@ -82,8 +113,8 @@ final class AppSettings {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        language = LessonLanguage(rawValue: defaults.string(forKey: "lessonLanguage") ?? "")
-            ?? .german
+        layoutChoice = KeyboardLayoutChoice(rawValue: defaults.string(forKey: "keyboardLayout") ?? "")
+            ?? .automatic
         tickerSpeedLevel = Self.int("tickerSpeedLevel", default: TickerPacing.defaultLevel, in: defaults)
         limitKind = LimitKind(rawValue: defaults.string(forKey: "limitKind") ?? "") ?? .time
         limitMinutes = Self.int("limitMinutes", default: 5, in: defaults)
@@ -108,6 +139,41 @@ final class AppSettings {
 
     private static func int(_ key: String, default value: Int, in defaults: UserDefaults) -> Int {
         defaults.object(forKey: key) as? Int ?? value
+    }
+
+    // MARK: - Tastaturerkennung
+
+    /// Übernimmt eine Erkennung des Systemlayouts.
+    func apply(_ detection: KeyboardLayoutDetector.Detection) {
+        detectedLayout = detection.layout
+        detectedLayoutName = detection.localizedName
+    }
+
+    /// Erkennt das Systemlayout jetzt und folgt künftigen Wechseln.
+    func startObservingKeyboardLayout() {
+        apply(KeyboardLayoutDetector.current())
+        guard layoutObserver == nil else { return }
+        layoutObserver = DistributedNotificationCenter.default().addObserver(
+            forName: KeyboardLayoutDetector.changeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.apply(KeyboardLayoutDetector.current())
+            }
+        }
+    }
+
+    /// Hinweis für die Oberfläche, wenn Erkennung und Auswahl nicht zusammenpassen.
+    var layoutWarning: String? {
+        switch layoutChoice {
+        case .automatic:
+            guard detectedLayout == nil, !detectedLayoutName.isEmpty else { return nil }
+            return "Das Tastaturlayout »\(detectedLayoutName)« wird nicht unterstützt. Die Übungen gehen von \(LessonLanguage.german.layoutName) aus – du kannst das Layout hier fest wählen."
+        case .german, .english:
+            guard let detected = detectedLayout, detected != language else { return nil }
+            return "Erkannt wurde \(detected.layoutName). Mit der festen Auswahl \(language.layoutName) passen Tastenhinweise nicht zu deiner Tastatur."
+        }
     }
 
     // MARK: - Abgeleitete Trainingsparameter

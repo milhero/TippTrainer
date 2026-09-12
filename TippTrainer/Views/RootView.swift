@@ -119,14 +119,14 @@ struct RootView: View {
             return
         }
         let samples: [(title: String, strokes: Int, errors: Int, seconds: Int, daysAgo: Int)] = [
-            ("Lektion 1: asdf jklö", 210, 6, 300, 9),
-            ("Lektion 1: asdf jklö", 250, 4, 300, 8),
-            ("Lektion 2: e n", 262, 5, 300, 7),
-            ("Lektion 2: e n", 300, 3, 300, 6),
-            ("Lektion 3: r i", 315, 5, 300, 5),
+            ("Lektion 1: Die Grundstellung", 210, 6, 300, 9),
+            ("Lektion 1: Die Grundstellung", 250, 4, 300, 8),
+            ("Lektion 2: Die häufigsten Buchstaben", 262, 5, 300, 7),
+            ("Lektion 2: Die häufigsten Buchstaben", 300, 3, 300, 6),
+            ("Lektion 3: Hinauf zur oberen Reihe", 315, 5, 300, 5),
             ("Wandrers Nachtlied", 340, 2, 240, 4),
-            ("Lektion 4: t h", 352, 3, 300, 3),
-            ("Lektion 5: c u", 380, 4, 300, 1),
+            ("Lektion 4: Die Zeigefinger greifen", 352, 3, 300, 3),
+            ("Lektion 5: Unten und oben", 380, 4, 300, 1),
         ]
         for sample in samples {
             let kind: LessonKind = sample.title.hasPrefix("Lektion") ? .practice : .dictation

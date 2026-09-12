@@ -145,3 +145,37 @@ Alle Punkte aus Abschnitt 1 und 2 sind umgesetzt. Testsuite: 85 Tests in
 (Lektion 1, 2, 6, 19), freies Üben, Fingerstatistik mit Handgrafik,
 Verlauf, Ergebnisdialog. Nicht per Automatik prüfbar: Escape als
 Tastaturkürzel für »Beenden« (im Code hinterlegt, manuell zu testen).
+
+## 6. Nachtrag: Tastaturerkennung und Lektionsnamen
+
+**Befund.** Die Übungslektion 1 zeigte auf einer deutschen Tastatur das
+Semikolon als Grundstellungstaste: Die Lektionssprache stand (durch den
+Observation-Fehler still gespeichert) auf English, also QWERTY, während
+vor dem Nutzer eine QWERTZ-Tastatur liegt. Die App hatte keine Kenntnis
+vom tatsächlichen Layout; „Sprache" vermischte Tastaturlayout und
+Textsprache. Mehrere Untertitel nannten außerdem falsche Finger
+(„Zeigefinger unten und oben" für b/w, obwohl w der Ringfinger ist), und
+die englischen Lektionen trugen englische Namen in einer deutschen
+Oberfläche.
+
+**Änderungen.**
+- `KeyboardLayoutDetector` liest das aktive Systemlayout (Carbon Text
+  Input Sources) und ordnet es QWERTZ (German, Austrian, SwissGerman,
+  ABC-QWERTZ …) oder QWERTY (US, ABC, British …) zu; Wechsel werden über
+  die Systembenachrichtigung übernommen.
+- `AppSettings.layoutChoice` (automatisch/deutsch/englisch) ersetzt die
+  Sprachwahl. Das wirksame Layout bestimmt Übungslektionen, virtuelle
+  Tastatur, Fingerhinweise, Statistik und Buchstabenregen. Nicht
+  unterstützte Layouts fallen auf Deutsch zurück und werden auf der
+  Startseite benannt; eine manuelle Auswahl, die von der Erkennung
+  abweicht, wird als Warnung angezeigt. Der alte Schlüssel
+  `lessonLanguage` wird ignoriert.
+- `TrainingRequest` trennt `layout` (Tastatur) von `language` (Textsprache):
+  englische Diktate werden auf der deutschen Tastatur mit deutschem
+  Tastenbild getippt.
+- Alle 40 Lektionen haben beschreibende, fingerkorrekte Namen und
+  Untertitel in der Sprache der Oberfläche; die neuen Tasten erscheinen
+  als Tastenkappen auf den Karten. Bestwerte werden über die
+  Lektionsnummer zugeordnet, damit umbenannte Lektionen ihre Ergebnisse
+  behalten.
+- Testsuite: 94 Tests in 13 Suites.

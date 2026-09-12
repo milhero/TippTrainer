@@ -48,10 +48,20 @@ struct StatisticsStore {
     }
 
     /// Bester gespeicherter Punktwert einer Lektion, `nil` ohne Ergebnis.
+    /// Übungslektionen werden über ihre Nummer verglichen, damit umbenannte
+    /// Lektionen ihre Bestwerte behalten.
     func bestPoints(forLessonTitle title: String) -> Int? {
-        let descriptor = FetchDescriptor<LessonRecord>(
-            predicate: #Predicate { $0.lessonTitle == title }
-        )
+        let descriptor: FetchDescriptor<LessonRecord>
+        if let number = LessonRecord.lessonNumber(inTitle: title) {
+            let prefix = "Lektion \(number):"
+            descriptor = FetchDescriptor(
+                predicate: #Predicate { $0.lessonTitle.starts(with: prefix) }
+            )
+        } else {
+            descriptor = FetchDescriptor(
+                predicate: #Predicate { $0.lessonTitle == title }
+            )
+        }
         let previous = (try? context.fetch(descriptor)) ?? []
         return previous.map(\.points).max()
     }

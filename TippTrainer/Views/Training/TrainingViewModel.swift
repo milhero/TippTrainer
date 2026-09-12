@@ -15,6 +15,9 @@ struct AssistanceOptions {
 /// es eine Übungs-, freie oder eigene Lektion ist.
 struct TrainingRequest {
     let title: String
+    /// Tastaturlayout, auf dem getippt wird (virtuelle Tastatur, Finger).
+    let layout: LessonLanguage
+    /// Sprache des Textes (für die Statistik).
     let language: LessonLanguage
     let unit: LessonUnit
     let kind: LessonKind
@@ -46,6 +49,7 @@ extension TrainingRequest {
             : []
         return TrainingRequest(
             title: "Lektion \(lesson.number): \(lesson.title)",
+            layout: settings.language,
             language: settings.language,
             unit: lesson.unit,
             kind: .practice,
@@ -89,7 +93,7 @@ final class TrainingViewModel {
         self.language = request.language
         self.unit = request.unit
         self.kind = request.kind
-        self.layout = KeyboardModel.layout(for: request.language)
+        self.layout = KeyboardModel.layout(for: request.layout)
         self.assistance = request.assistance
         self.tickerSpeedLevel = request.tickerSpeedLevel
 
