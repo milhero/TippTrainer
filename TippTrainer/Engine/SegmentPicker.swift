@@ -26,7 +26,8 @@ struct SeededGenerator: RandomNumberGenerator {
 /// Intelligenz. Mit Intelligenz werden Bausteine bevorzugt, die die
 /// aktuell fehlerträchtigsten Zeichen am häufigsten enthalten; jede
 /// zweite Abfrage ist stattdessen zufällig, und die letzten zehn
-/// Bausteine werden nie wiederholt.
+/// Bausteine werden nie wiederholt. Ohne Intelligenz werden die Bausteine
+/// in Lektionsreihenfolge diktiert und bei Bedarf wiederholt.
 struct SegmentPicker {
     private let segments: [TextSegment]
     private let intelligence: Bool
@@ -35,6 +36,7 @@ struct SegmentPicker {
     private var rng: SeededGenerator
     private var recentIDs: [Int] = []
     private var queryCounter = 0
+    private var sequentialIndex = 0
 
     init(
         segments: [TextSegment],
@@ -59,6 +61,7 @@ struct SegmentPicker {
 
     mutating func nextSegment(stats: CharacterStats) -> TextSegment? {
         guard !segments.isEmpty else { return nil }
+        guard intelligence else { return nextSequentialSegment() }
         queryCounter += 1
 
         let worst = stats.worstCharacters(limit: 4)
@@ -98,6 +101,15 @@ struct SegmentPicker {
             return pick
         }
         return ordered.first
+    }
+
+    /// Ohne Intelligenz folgt das Diktat der Lektionsreihenfolge: nach der
+    /// Intro-Zeile Baustein für Baustein, am Ende wieder von vorn.
+    private mutating func nextSequentialSegment() -> TextSegment {
+        let pool = segments.count > 1 ? Array(segments.dropFirst()) : segments
+        let pick = pool[sequentialIndex % pool.count]
+        sequentialIndex += 1
+        return pick
     }
 
     private mutating func remember(_ id: Int) {

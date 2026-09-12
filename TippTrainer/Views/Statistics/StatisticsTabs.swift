@@ -101,35 +101,96 @@ struct LessonListTab: View {
 
 // MARK: - Verlaufsdiagramm
 
+/// Punkte und Anschläge pro Minute je gespeicherter Lektion, in zeitlicher
+/// Reihenfolge. Die x-Achse zählt die Lektionen durch — mehrere Übungen am
+/// selben Tag bleiben so unterscheidbar.
 struct ProgressChartTab: View {
     let records: [LessonRecord]
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Punkteentwicklung")
-                .font(.headline)
-            Chart(records.sorted { $0.date < $1.date }) { record in
-                LineMark(
-                    x: .value("Datum", record.date),
-                    y: .value("Punkte", record.points)
-                )
-                .foregroundStyle(.tint)
-                .interpolationMethod(.catmullRom)
+    private var ordered: [(number: Int, record: LessonRecord)] {
+        records
+            .sorted { $0.date < $1.date }
+            .enumerated()
+            .map { (number: $0.offset + 1, record: $0.element) }
+    }
 
-                PointMark(
-                    x: .value("Datum", record.date),
-                    y: .value("Punkte", record.points)
-                )
-                .foregroundStyle(by: .value("Art", record.kind.label))
+    var body: some View {
+        let data = ordered
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                if data.count < 2 {
+                    Text("Ab der zweiten gespeicherten Lektion zeigt die Linie deine Entwicklung. Bisher gespeichert: \(data.count).")
+                        .foregroundStyle(.secondary)
+                }
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Punkte")
+                        .font(.headline)
+                    Chart(data, id: \.number) { item in
+                        LineMark(
+                            x: .value("Lektion", item.number),
+                            y: .value("Punkte", item.record.points)
+                        )
+                        .foregroundStyle(.tint)
+                        .interpolationMethod(.monotone)
+                        PointMark(
+                            x: .value("Lektion", item.number),
+                            y: .value("Punkte", item.record.points)
+                        )
+                        .foregroundStyle(by: .value("Art", item.record.kind.label))
+                        .symbolSize(70)
+                    }
+                    .chartForegroundStyleScale([
+                        LessonKind.practice.label: Color.primary,
+                        LessonKind.dictation.label: Color.blue,
+                        LessonKind.own.label: Color.green,
+                    ])
+                    .chartXScale(domain: 1...max(2, data.count))
+                    .chartXAxisLabel("Gespeicherte Lektionen, chronologisch")
+                    .chartYAxisLabel("Punkte")
+                    .frame(height: 260)
+                }
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Anschläge pro Minute und Fehlerquote")
+                        .font(.headline)
+                    Chart(data, id: \.number) { item in
+                        BarMark(
+                            x: .value("Lektion", item.number),
+                            y: .value("A/min", item.record.strokesPerMinute)
+                        )
+                        .foregroundStyle(.tint.opacity(0.45))
+                    }
+                    .chartXScale(domain: 0.5...(Double(max(2, data.count)) + 0.5))
+                    .chartYAxisLabel("A/min")
+                    .frame(height: 160)
+                    Chart(data, id: \.number) { item in
+                        LineMark(
+                            x: .value("Lektion", item.number),
+                            y: .value("Fehlerquote", item.record.errorRate)
+                        )
+                        .foregroundStyle(.orange)
+                        .interpolationMethod(.monotone)
+                        PointMark(
+                            x: .value("Lektion", item.number),
+                            y: .value("Fehlerquote", item.record.errorRate)
+                        )
+                        .foregroundStyle(.orange)
+                    }
+                    .chartXScale(domain: 1...max(2, data.count))
+                    .chartYAxisLabel("Fehler in %")
+                    .frame(height: 140)
+                }
+
+                if let latest = data.last {
+                    Text("Zuletzt: \(latest.record.lessonTitle), \(latest.record.date.formatted(date: .abbreviated, time: .shortened))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
-            .chartForegroundStyleScale([
-                LessonKind.practice.label: Color.primary,
-                LessonKind.dictation.label: Color.blue,
-                LessonKind.own.label: Color.green,
-            ])
-            .frame(minHeight: 300)
+            .padding(24)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(24)
     }
 }
 

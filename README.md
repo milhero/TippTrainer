@@ -7,11 +7,18 @@ komplett neu implementiert in Swift/SwiftUI mit eigenständigen Inhalten.
 ## Funktionen
 
 - 20 aufeinander aufbauende Übungslektionen (Deutsch QWERTZ + Englisch QWERTY)
+- Lernschritte: Jede Übungslektion beginnt mit einem kleinen Tutorial —
+  Grundstellung Finger für Finger, je neue Taste eine Übungszeile mit
+  Fingerhinweis und Handgrafik, danach freies Üben
 - Intelligente Diktate: fehlerträchtige Zeichen werden häufiger wiederholt
 - Freie Diktate und eigene Lektionen (Satz-/Wortdiktat, Import/Export)
 - Laufschrift mit adaptiver Geschwindigkeit, virtuelle Tastatur mit
   Fingerfarben, Tastwegen und Grundstellungsanzeige
-- Umfassende Lernstatistik (Bericht, Verlauf, Zeichen-/Finger-Auswertung)
+- Startseite mit Empfehlung („Als Nächstes"), Bestwerten und Lernfortschritt
+- Umfassende Lernstatistik (Bericht, Verlauf, Zeichen-Auswertung,
+  Fehlerquote je Finger auf einer Handgrafik)
+- Ein Einstellungsfenster (Zahnrad oder ⌘,) für Training, Hilfen,
+  Darstellung und Daten
 - Buchstabenregen-Spiel
 
 ## Voraussetzungen
@@ -72,7 +79,7 @@ Debug-Build ohne Installation:
 xcodebuild -project TippTrainer.xcodeproj -scheme TippTrainer build
 ```
 
-Tests ausführen (64 Tests in 10 Suites, Swift Testing):
+Tests ausführen (85 Tests in 12 Suites, Swift Testing):
 
 ```sh
 xcodebuild -project TippTrainer.xcodeproj -scheme TippTrainer test
@@ -80,7 +87,25 @@ xcodebuild -project TippTrainer.xcodeproj -scheme TippTrainer test
 
 Die Testsuite nutzt Swift Testing statt XCTest. Die XCTest-Zusammenfassung
 am Ende meldet deshalb `Executed 0 tests` — maßgeblich ist die Zeile
-`Test run with 64 tests in 10 suites passed`.
+`Test run with 85 tests in 12 suites passed`.
+
+### Visuelle Prüfung ohne Mausklick
+
+Die App kennt Startargumente für Screenshots und Sichtprüfungen. Mit
+`--memory-store` bleibt die echte Lernstatistik unberührt:
+
+```sh
+open -n build/Build/Products/Debug/TippTrainer.app --args \
+     --memory-store --seed-demo --auto-training 2 --auto-type --auto-keys 40
+```
+
+- `--memory-store` – flüchtiger Datenspeicher (Pflicht für Testläufe)
+- `--seed-demo` – Beispielergebnisse für Startseite und Statistik
+- `--auto-training <nr>` – Übungslektion direkt öffnen
+- `--auto-type` – Anschläge simulieren (`--auto-keys <n>` begrenzt die
+  Anzahl, `--auto-full` tippt bis zum Limit)
+- `--screen statistics|game|settings` und `--tab report|lessons|progress|characters|fingers|comparison`
+- `-lessonLanguage de|en` – Lektionssprache für diesen Start
 
 ## Fehlerbehebung
 

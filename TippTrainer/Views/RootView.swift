@@ -2,19 +2,21 @@ import SwiftData
 import SwiftUI
 
 /// Oberste Navigation: wechselt zwischen Start, Training, Statistik und
-/// dem Buchstabenregen-Spiel.
+/// dem Buchstabenregen-Spiel und zeigt das Einstellungsfenster.
 struct RootView: View {
     enum Screen: Hashable {
         case home, statistics, game
     }
 
     @Environment(AppSettings.self) private var settings
+    @Environment(AppNavigation.self) private var navigation
     @Environment(\.modelContext) private var modelContext
     @State private var screen: Screen = .home
     @State private var activeTraining: TrainingViewModel?
     @State private var showsRecordConfetti = false
 
     var body: some View {
+        @Bindable var navigation = navigation
         ZStack {
             if let training = activeTraining {
                 TrainingView(viewModel: training) { outcome in
@@ -23,6 +25,9 @@ struct RootView: View {
                 .transition(.opacity)
             } else {
                 navigationShell
+                    .sheet(isPresented: $navigation.showsSettings) {
+                        SettingsSheet()
+                    }
             }
 
             if showsRecordConfetti {
@@ -37,8 +42,11 @@ struct RootView: View {
 
     /// Debug-Einstieg für die visuelle Verifikation ohne Mausklick:
     /// `--auto-training <nr>` startet direkt eine Übungslektion,
-    /// `--auto-type` simuliert Anschläge inklusive eines Fehlers,
-    /// `--screen statistics|game` öffnet direkt einen Bereich.
+    /// `--auto-type` simuliert Anschläge inklusive eines Fehlers
+    /// (`--auto-keys <n>` begrenzt die Anzahl, `--auto-full` tippt bis zum
+    /// Limit), `--screen statistics|game|settings` öffnet direkt einen
+    /// Bereich, `--seed-demo` legt Beispieldaten an (nur mit `--memory-store`
+    /// sinnvoll).
     private func autoStartForScreenshotIfRequested() {
         let arguments = ProcessInfo.processInfo.arguments
         if arguments.contains("--seed-demo") {
@@ -49,48 +57,41 @@ struct RootView: View {
             switch arguments[screenIndex + 1] {
             case "statistics": screen = .statistics
             case "game": screen = .game
+            case "settings": navigation.showSettings(.training)
             default: break
             }
         }
         guard let flagIndex = arguments.firstIndex(of: "--auto-training"),
             arguments.indices.contains(flagIndex + 1),
             let number = Int(arguments[flagIndex + 1]),
-            let lesson = (try? ContentStore.practiceLessons(for: settings.language))?
-                .first(where: { $0.number == number })
+            let lessons = try? ContentStore.practiceLessons(for: settings.language),
+            let lesson = lessons.first(where: { $0.number == number })
         else { return }
 
-        onStartAutoTraining(lesson: lesson, autoType: arguments.contains("--auto-type"))
+        onStartAutoTraining(
+            lesson: lesson, allLessons: lessons,
+            autoType: arguments.contains("--auto-type")
+        )
     }
 
-    private func onStartAutoTraining(lesson: PracticeLesson, autoType: Bool) {
-        var segments = lesson.segments
-        var intro = lesson.intro
-        if lesson.number == 18 {
-            let pool = (try? ContentStore.practiceLessons(for: settings.language))?
-                .filter { (7...17).contains($0.number) }
-                .flatMap(\.segments) ?? []
-            segments = pool
-            intro = pool.first ?? ""
-        }
-        let training = TrainingViewModel(request: TrainingRequest(
-            title: "Lektion \(lesson.number): \(lesson.title)",
-            language: settings.language,
-            unit: lesson.unit,
-            kind: .practice,
-            intro: intro,
-            segments: segments,
-            configuration: settings.configuration(
-                intelligenceAllowed: lesson.unit != .numpad
-            ),
-            assistance: settings.assistance,
-            tickerSpeedLevel: settings.tickerSpeedLevel
-        ))
+    private func onStartAutoTraining(
+        lesson: PracticeLesson, allLessons: [PracticeLesson], autoType: Bool
+    ) {
+        let training = TrainingViewModel(
+            request: .practice(lesson, allLessons: allLessons, settings: settings)
+        )
         activeTraining = training
         guard autoType else { return }
         let session = training.session
         session.handleKey(.character(" "))
-        let full = ProcessInfo.processInfo.arguments.contains("--auto-full")
-        let maxKeys = full ? 5000 : 8
+        let arguments = ProcessInfo.processInfo.arguments
+        let full = arguments.contains("--auto-full")
+        var maxKeys = full ? 5000 : 8
+        if let keysIndex = arguments.firstIndex(of: "--auto-keys"),
+            arguments.indices.contains(keysIndex + 1),
+            let count = Int(arguments[keysIndex + 1]) {
+            maxKeys = count
+        }
         var typed = 0
         while typed < maxKeys, let expected = session.currentCharacter,
             session.state == .running {
@@ -111,40 +112,61 @@ struct RootView: View {
         }
     }
 
-    /// Beispieldaten für die visuelle Verifikation der Statistik.
+    /// Beispieldaten für die visuelle Verifikation der Statistik und der
+    /// Startseite: mehrere Lektionen über gut eine Woche verteilt.
     private func seedDemoData() {
         guard (try? modelContext.fetchCount(FetchDescriptor<LessonRecord>())) == 0 else {
             return
         }
-        let store = StatisticsStore(context: modelContext)
-        let samples: [(title: String, strokes: Int, errors: Int, seconds: Int)] = [
-            ("Lektion 1: asdf jklö", 210, 4, 300),
-            ("Lektion 2: e n", 250, 3, 300),
-            ("Lektion 3: r i", 268, 5, 300),
-            ("Wandrers Nachtlied", 240, 2, 240),
-            ("Lektion 4: t h", 292, 3, 300),
+        let samples: [(title: String, strokes: Int, errors: Int, seconds: Int, daysAgo: Int)] = [
+            ("Lektion 1: asdf jklö", 210, 6, 300, 9),
+            ("Lektion 1: asdf jklö", 250, 4, 300, 8),
+            ("Lektion 2: e n", 262, 5, 300, 7),
+            ("Lektion 2: e n", 300, 3, 300, 6),
+            ("Lektion 3: r i", 315, 5, 300, 5),
+            ("Wandrers Nachtlied", 340, 2, 240, 4),
+            ("Lektion 4: t h", 352, 3, 300, 3),
+            ("Lektion 5: c u", 380, 4, 300, 1),
         ]
         for sample in samples {
-            var stats = CharacterStats()
-            for character in "die schule faehrt weit" { stats.recordOccurrence(character) }
-            for character in "cxq" {
-                stats.recordOccurrence(character)
-                stats.recordTargetError(character)
-            }
             let kind: LessonKind = sample.title.hasPrefix("Lektion") ? .practice : .dictation
-            store.save(
-                lessonTitle: sample.title, language: .german, kind: kind,
-                strokes: sample.strokes, errors: sample.errors,
-                characters: sample.strokes + sample.errors, seconds: sample.seconds,
-                characterStats: stats
-            )
+            modelContext.insert(LessonRecord(
+                lessonTitle: sample.title,
+                language: .german,
+                kind: kind,
+                strokes: sample.strokes,
+                errors: sample.errors,
+                characters: sample.strokes,
+                seconds: sample.seconds,
+                points: Scorer.points(
+                    strokes: sample.strokes, errors: sample.errors, seconds: sample.seconds
+                ),
+                date: Date.now.addingTimeInterval(-Double(sample.daysAgo) * 86_400)
+            ))
+        }
+        let errorRates: [Character: (occurrences: Int, errors: Int)] = [
+            "a": (120, 2), "s": (90, 4), "d": (95, 1), "f": (110, 0),
+            "j": (100, 1), "k": (80, 6), "l": (85, 2), "ö": (30, 7),
+            "e": (140, 5), "n": (90, 3), "r": (70, 9), "i": (75, 2),
+            "t": (60, 4), "h": (55, 8), "c": (20, 6), "u": (35, 3), " ": (200, 1),
+        ]
+        for (character, entry) in errorRates {
+            guard let scalar = character.unicodeScalars.first else { continue }
+            modelContext.insert(CharRecord(
+                unicode: Int(scalar.value),
+                occurrences: entry.occurrences,
+                targetErrors: entry.errors,
+                mistakes: entry.errors
+            ))
         }
         try? modelContext.save()
     }
 
     private var navigationShell: some View {
         VStack(spacing: 0) {
-            TopBar(screen: $screen)
+            TopBar(screen: $screen) {
+                navigation.showSettings(.training)
+            }
             Divider()
             switch screen {
             case .home:
@@ -166,12 +188,14 @@ struct RootView: View {
     }
 
     private func startTraining(_ request: TrainingRequest) {
+        navigation.showsSettings = false
         let store = StatisticsStore(context: modelContext)
         activeTraining = TrainingViewModel(
             request: request,
             settings: settings,
             initialStats: settings.intelligence
-                ? store.accumulatedCharacterStats() : CharacterStats()
+                ? store.accumulatedCharacterStats() : CharacterStats(),
+            previousBestPoints: store.bestPoints(forLessonTitle: request.title)
         )
     }
 
@@ -186,7 +210,7 @@ struct RootView: View {
             kind: training.kind,
             strokes: session.strokes,
             errors: session.errors,
-            characters: max(0, session.dictatedCharacters - 1),
+            characters: session.typedCharacters,
             seconds: session.elapsedSeconds,
             characterStats: session.characterStats
         )
@@ -204,9 +228,10 @@ struct RootView: View {
     }
 }
 
-/// Kopfzeile mit den Hauptbereichen.
+/// Kopfzeile mit den Hauptbereichen und dem Zugang zu den Einstellungen.
 private struct TopBar: View {
     @Binding var screen: RootView.Screen
+    let onSettings: () -> Void
 
     var body: some View {
         HStack(spacing: 8) {
@@ -224,10 +249,11 @@ private struct TopBar: View {
             .labelStyle(.titleAndIcon)
             .fixedSize()
             Spacer()
-            SettingsLink {
+            Button(action: onSettings) {
                 Image(systemName: "gearshape")
             }
             .buttonStyle(.borderless)
+            .help("Einstellungen (⌘,)")
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)

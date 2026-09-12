@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// Das Trainingsfenster: Laufschrift oben, virtuelle Tastatur in der
-/// Mitte, Statusleiste unten — plus Pause und Abbruch.
+/// Das Trainingsfenster: Schritt-Banner und Laufschrift oben, virtuelle
+/// Tastatur in der Mitte, Statusleiste mit Fingerhinweis unten — plus Pause
+/// und Abbruch.
 struct TrainingView: View {
     @State var viewModel: TrainingViewModel
     let onClose: (TrainingOutcome) -> Void
@@ -10,8 +11,12 @@ struct TrainingView: View {
     @State private var showsCancelDialog = false
 
     var body: some View {
-        VStack(spacing: 18) {
+        VStack(spacing: 16) {
             header
+
+            if !viewModel.session.steps.isEmpty {
+                stepBanner
+            }
 
             TickerView(
                 text: viewModel.session.dictationText,
@@ -38,9 +43,9 @@ struct TrainingView: View {
                         assistance: viewModel.assistance
                     )
                 }
-            } else {
-                Spacer(minLength: 0)
             }
+
+            Spacer(minLength: 0)
 
             statusBar
         }
@@ -62,6 +67,7 @@ struct TrainingView: View {
             ResultSummaryView(
                 lessonTitle: viewModel.lessonTitle,
                 session: viewModel.session,
+                previousBestPoints: viewModel.previousBestPoints,
                 onDone: { save in
                     onClose(save ? .finished : .discarded)
                 }
@@ -81,6 +87,8 @@ struct TrainingView: View {
         }
     }
 
+    // MARK: - Kopf
+
     private var header: some View {
         HStack {
             Text(viewModel.lessonTitle)
@@ -95,14 +103,37 @@ struct TrainingView: View {
             .disabled(viewModel.session.state != .running)
 
             Button(role: .cancel) {
-                viewModel.pause()
-                showsCancelDialog = true
+                requestClose()
             } label: {
                 Label("Beenden", systemImage: "xmark")
             }
-            .keyboardShortcut("b", modifiers: .option)
+            .keyboardShortcut(.cancelAction)
         }
         .buttonStyle(.bordered)
+    }
+
+    /// Solange noch nichts getippt wurde, gibt es nichts zu verlieren:
+    /// dann schließt »Beenden« ohne Rückfrage.
+    private func requestClose() {
+        let session = viewModel.session
+        if session.strokes == 0 && session.errors == 0 {
+            onClose(.discarded)
+        } else {
+            viewModel.pause()
+            showsCancelDialog = true
+        }
+    }
+
+    // MARK: - Lernschritte
+
+    @ViewBuilder
+    private var stepBanner: some View {
+        let session = viewModel.session
+        if let step = session.currentStep, let index = session.currentStepIndex {
+            StepBanner(step: step, index: index, total: session.steps.count)
+        } else {
+            FreePracticeBanner(intelligence: session.configuration.intelligence)
+        }
     }
 
     private var pauseOverlayText: String? {
@@ -112,6 +143,8 @@ struct TrainingView: View {
         default: nil
         }
     }
+
+    // MARK: - Statusleiste
 
     private var statusBar: some View {
         HStack(spacing: 22) {
@@ -126,10 +159,19 @@ struct TrainingView: View {
                 value: "\(Int(viewModel.session.strokesPerMinute))"
             )
             Spacer()
+            if viewModel.assistance.showStatusHints {
+                HandsView(
+                    highlighted: viewModel.currentFinger.map { [$0] } ?? [],
+                    secondary: viewModel.currentShiftFinger.map { [$0] } ?? []
+                )
+                .frame(height: 40)
+                .animation(.snappy(duration: 0.15), value: viewModel.currentFinger)
+            }
             Text(viewModel.statusHint)
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
+                .frame(minWidth: 220, alignment: .leading)
             Spacer()
             statusItem(
                 icon: "clock",
@@ -139,7 +181,7 @@ struct TrainingView: View {
             statusItem(
                 icon: "character.cursor.ibeam",
                 label: "Zeichen",
-                value: "\(max(0, viewModel.session.dictatedCharacters - 1))"
+                value: "\(viewModel.session.typedCharacters)"
             )
         }
         .padding(.horizontal, 18)
@@ -170,4 +212,80 @@ struct TrainingView: View {
 enum TrainingOutcome {
     case finished
     case discarded
+}
+
+// MARK: - Banner
+
+/// Erklärt den laufenden Lernschritt und zeigt die beteiligten Finger.
+private struct StepBanner: View {
+    let step: LessonStep
+    let index: Int
+    let total: Int
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 20) {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 10) {
+                    Text("Schritt \(index + 1) von \(total)")
+                        .font(.caption.weight(.semibold))
+                        .textCase(.uppercase)
+                        .foregroundStyle(.tint)
+                    HStack(spacing: 3) {
+                        ForEach(0..<total, id: \.self) { position in
+                            Capsule()
+                                .fill(position <= index
+                                    ? Color.accentColor : Color.primary.opacity(0.12))
+                                .frame(width: 16, height: 4)
+                        }
+                    }
+                }
+                Text(step.title)
+                    .font(.headline)
+                Text(step.hint)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+            HandsView(highlighted: Set(step.fingers))
+                .frame(width: 150)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color.accentColor.opacity(0.08))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(Color.accentColor.opacity(0.2))
+        )
+        .animation(.smooth(duration: 0.25), value: index)
+    }
+}
+
+/// Kompakter Hinweis nach den Lernschritten.
+private struct FreePracticeBanner: View {
+    let intelligence: Bool
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: intelligence ? "brain.head.profile" : "list.number")
+                .foregroundStyle(.tint)
+            Text("Freies Üben")
+                .font(.headline)
+            Text(intelligence
+                ? "Die Intelligenz wählt jetzt bevorzugt Wörter mit deinen Fehlerzeichen."
+                : "Die Lektion wird jetzt der Reihe nach diktiert.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            Spacer()
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(.background.secondary)
+        )
+    }
 }

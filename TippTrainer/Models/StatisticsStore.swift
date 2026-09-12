@@ -43,12 +43,17 @@ struct StatisticsStore {
     }
 
     private func isPersonalRecord(title: String, points: Int) -> Bool {
+        guard let best = bestPoints(forLessonTitle: title) else { return true }
+        return points > best
+    }
+
+    /// Bester gespeicherter Punktwert einer Lektion, `nil` ohne Ergebnis.
+    func bestPoints(forLessonTitle title: String) -> Int? {
         let descriptor = FetchDescriptor<LessonRecord>(
             predicate: #Predicate { $0.lessonTitle == title }
         )
         let previous = (try? context.fetch(descriptor)) ?? []
-        guard let best = previous.map(\.points).max() else { return true }
-        return points > best
+        return previous.map(\.points).max()
     }
 
     private func mergeCharacterStats(_ stats: CharacterStats) {

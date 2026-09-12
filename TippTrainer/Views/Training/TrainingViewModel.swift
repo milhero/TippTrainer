@@ -20,9 +20,43 @@ struct TrainingRequest {
     let kind: LessonKind
     let intro: String
     let segments: [String]
+    /// Geführte Lernschritte vor dem freien Üben (nur Übungslektionen).
+    var steps: [LessonStep] = []
     let configuration: TrainingConfiguration
     let assistance: AssistanceOptions
     let tickerSpeedLevel: Int
+}
+
+extension TrainingRequest {
+    /// Baut die Anfrage für eine Übungslektion — inklusive des Sammelpools
+    /// für Lektion 18 und der generierten Lernschritte.
+    static func practice(
+        _ lesson: PracticeLesson, allLessons: [PracticeLesson], settings: AppSettings
+    ) -> TrainingRequest {
+        var segments = lesson.segments
+        var intro = lesson.intro
+        if lesson.number == 18 {
+            segments = allLessons
+                .filter { (7...17).contains($0.number) }
+                .flatMap(\.segments)
+            intro = segments.first ?? ""
+        }
+        let steps = settings.guidedSteps
+            ? LessonCurriculum.steps(for: lesson, language: settings.language)
+            : []
+        return TrainingRequest(
+            title: "Lektion \(lesson.number): \(lesson.title)",
+            language: settings.language,
+            unit: lesson.unit,
+            kind: .practice,
+            intro: intro,
+            segments: segments,
+            steps: steps,
+            configuration: settings.configuration(intelligenceAllowed: lesson.unit != .numpad),
+            assistance: settings.assistance,
+            tickerSpeedLevel: settings.tickerSpeedLevel
+        )
+    }
 }
 
 /// Bindeglied zwischen Trainings-Engine und SwiftUI.
@@ -39,15 +73,19 @@ final class TrainingViewModel {
     private(set) var session: TrainingSession
     private(set) var errorFlash = false
     var showsResult = false
+    /// Bester bisher gespeicherter Punktwert dieser Lektion (für die Auswertung).
+    let previousBestPoints: Int?
 
     private var timer: Timer?
 
     init(
         request: TrainingRequest,
         settings: AppSettings? = nil,
-        initialStats: CharacterStats = CharacterStats()
+        initialStats: CharacterStats = CharacterStats(),
+        previousBestPoints: Int? = nil
     ) {
         self.lessonTitle = request.title
+        self.previousBestPoints = previousBestPoints
         self.language = request.language
         self.unit = request.unit
         self.kind = request.kind
@@ -58,13 +96,15 @@ final class TrainingViewModel {
         var segments = request.segments.enumerated().map {
             TextSegment(id: $0.offset + 1, text: $0.element)
         }
-        if !request.intro.isEmpty {
+        // Mit Lernschritten ist die Intro-Zeile bereits der letzte Schritt.
+        if !request.intro.isEmpty && request.steps.isEmpty {
             segments.insert(TextSegment(id: 0, text: request.intro), at: 0)
         }
         session = TrainingSession(
             segments: segments,
             unit: request.unit,
             configuration: request.configuration,
+            steps: request.steps,
             initialStats: initialStats
         )
         let beepOnError = request.configuration.beepOnError
@@ -93,8 +133,11 @@ final class TrainingViewModel {
         case .return: session.handleKey(.enter)
         case .tab: session.handleKey(.tab)
         case .delete: session.handleKey(.backspace)
+        case .escape: return .ignored
         default:
-            guard let character = press.characters.first else { return .ignored }
+            guard let character = press.characters.first,
+                Self.isTypable(character)
+            else { return .ignored }
             session.handleKey(.character(character))
         }
 
@@ -102,6 +145,16 @@ final class TrainingViewModel {
             startClock()
         }
         return .handled
+    }
+
+    /// Steuer- und Funktionstasten (Pfeile, Escape, F-Tasten …) sind keine
+    /// Anschläge und dürfen nicht als Tippfehler zählen. AppKit liefert
+    /// Funktionstasten als Zeichen im Private-Use-Bereich U+F700–U+F8FF.
+    static func isTypable(_ character: Character) -> Bool {
+        guard let scalar = character.unicodeScalars.first else { return false }
+        if scalar.value < 0x20 || scalar.value == 0x7F { return false }
+        if (0xF700...0xF8FF).contains(scalar.value) { return false }
+        return true
     }
 
     func pause() {
@@ -134,6 +187,26 @@ final class TrainingViewModel {
     // MARK: - Abgeleitete Anzeigen
 
     var currentCharacter: Character? { session.currentCharacter }
+
+    /// Der Finger für das aktuelle Zeichen (Rücktaste und Eingabe: kleiner
+    /// Finger rechts, Tabulator: kleiner Finger links).
+    var currentFinger: Finger? {
+        guard session.state == .running, let character = currentCharacter else { return nil }
+        if session.awaitingCorrection { return .rightPinky }
+        if character == DictationToken.newline { return .rightPinky }
+        if character == DictationToken.tab { return .leftPinky }
+        if unit == .numpad { return KeyboardModel.numpadFinger(for: character) }
+        return layout.finger(for: character)
+    }
+
+    /// Der kleine Finger, der für das aktuelle Zeichen Umschalt hält.
+    var currentShiftFinger: Finger? {
+        guard session.state == .running, !session.awaitingCorrection,
+            unit != .numpad, let character = currentCharacter,
+            let side = layout.shiftSide(for: character)
+        else { return nil }
+        return side == .left ? .leftPinky : .rightPinky
+    }
 
     var statusHint: String {
         guard assistance.showStatusHints else { return "" }

@@ -31,7 +31,13 @@ struct TickerView: View {
                         .frame(maxWidth: .infinity, alignment: .center)
                 } else {
                     TimelineView(.animation) { timeline in
+                        // Einzeilig in natürlicher Breite setzen: Der ZStack
+                        // schlägt sonst die Fensterbreite vor, der Text bricht
+                        // um und die Scroll-Rechnung (eine Zeile) zeigt ins
+                        // Leere — die »verschwundene Vorschau«.
                         styledText
+                            .lineLimit(1)
+                            .fixedSize(horizontal: true, vertical: false)
                             .offset(x: 24 - scrollOffset)
                             .onChange(of: timeline.date) { _, now in
                                 advanceScroll(cursorX: cursorX, width: width, now: now)

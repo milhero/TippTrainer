@@ -85,6 +85,35 @@ struct KeyboardModel: Sendable {
         rows.flatMap { $0 }.first { $0.id == id }
     }
 
+    /// Grundstellungstaste eines Fingers (Daumen: keine).
+    func homeKey(for finger: Finger) -> KeyboardKey? {
+        rows.flatMap { $0 }.first { $0.isHomeKey && $0.finger == finger }
+    }
+
+    /// Zeichen der Grundstellungstaste eines Fingers, z. B. »f«.
+    func homeCharacter(for finger: Finger) -> Character? {
+        guard let id = homeKey(for: finger)?.id, id.count == 1 else { return nil }
+        return id.first
+    }
+
+    /// Reihe einer Taste (0 = Zahlenreihe, 2 = Grundreihe).
+    func rowIndex(ofKeyID id: String) -> Int? {
+        rows.firstIndex { $0.contains { $0.id == id } }
+    }
+
+    /// Horizontale Mitte einer Taste in Tasteneinheiten — für
+    /// Richtungshinweise (»eine Reihe nach oben und etwas nach rechts«).
+    func keyCenterX(ofKeyID id: String) -> Double? {
+        for row in rows {
+            var x = 0.0
+            for key in row {
+                if key.id == id { return x + key.width / 2 }
+                x += key.width
+            }
+        }
+        return nil
+    }
+
     /// Fingerzuordnung auf dem Ziffernblock (rechte Hand):
     /// 1/4/7 Zeigefinger, 2/5/8 Mittelfinger, 3/6/9/Komma Ringfinger,
     /// 0 Daumen, Rechenzeichen und Eingabe kleiner Finger.
@@ -119,7 +148,7 @@ struct KeyboardModel: Sendable {
 
         init(
             _ base: Character, _ shifted: Character?, _ finger: Finger,
-            altGr: Character? = nil, home: Bool = false
+            home: Bool = false, altGr: Character? = nil
         ) {
             self.base = base
             self.shifted = shifted
@@ -196,7 +225,8 @@ struct KeyboardModel: Sendable {
         KeyboardKey(id: "pad", label: "", width: 1.5, kind: .modifier),
     ]
 
-    // MARK: - Deutschland QWERTZ (ISO)
+    // MARK: - Deutschland QWERTZ (ISO), Mac-Belegung der Wahltaste ⌥
+    // (@ = ⌥L, € = ⌥E, [ ] = ⌥5 ⌥6, { } = ⌥8 ⌥9, | = ⌥7, ~ = ⌥N)
 
     static let german: KeyboardModel = build(
         characterRows: [
@@ -206,17 +236,17 @@ struct KeyboardModel: Sendable {
                 CharKey("2", "\"", .leftRing, altGr: "²"),
                 CharKey("3", "§", .leftMiddle, altGr: "³"),
                 CharKey("4", "$", .leftIndex),
-                CharKey("5", "%", .leftIndex),
-                CharKey("6", "&", .rightIndex),
-                CharKey("7", "/", .rightIndex, altGr: "{"),
-                CharKey("8", "(", .rightMiddle, altGr: "["),
-                CharKey("9", ")", .rightRing, altGr: "]"),
-                CharKey("0", "=", .rightPinky, altGr: "}"),
-                CharKey("ß", "?", .rightPinky, altGr: "\\"),
+                CharKey("5", "%", .leftIndex, altGr: "["),
+                CharKey("6", "&", .rightIndex, altGr: "]"),
+                CharKey("7", "/", .rightIndex, altGr: "|"),
+                CharKey("8", "(", .rightMiddle, altGr: "{"),
+                CharKey("9", ")", .rightRing, altGr: "}"),
+                CharKey("0", "=", .rightPinky),
+                CharKey("ß", "?", .rightPinky),
                 CharKey("´", "`", .rightPinky),
             ],
             [
-                CharKey("q", "Q", .leftPinky, altGr: "@"),
+                CharKey("q", "Q", .leftPinky),
                 CharKey("w", "W", .leftRing),
                 CharKey("e", "E", .leftMiddle, altGr: "€"),
                 CharKey("r", "R", .leftIndex),
@@ -227,7 +257,7 @@ struct KeyboardModel: Sendable {
                 CharKey("o", "O", .rightRing),
                 CharKey("p", "P", .rightPinky),
                 CharKey("ü", "Ü", .rightPinky),
-                CharKey("+", "*", .rightPinky, altGr: "~"),
+                CharKey("+", "*", .rightPinky),
             ],
             [
                 CharKey("a", "A", .leftPinky, home: true),
@@ -238,19 +268,19 @@ struct KeyboardModel: Sendable {
                 CharKey("h", "H", .rightIndex),
                 CharKey("j", "J", .rightIndex, home: true),
                 CharKey("k", "K", .rightMiddle, home: true),
-                CharKey("l", "L", .rightRing, home: true),
+                CharKey("l", "L", .rightRing, home: true, altGr: "@"),
                 CharKey("ö", "Ö", .rightPinky, home: true),
                 CharKey("ä", "Ä", .rightPinky),
                 CharKey("#", "'", .rightPinky),
             ],
             [
-                CharKey("<", ">", .leftPinky, altGr: "|"),
+                CharKey("<", ">", .leftPinky),
                 CharKey("y", "Y", .leftPinky),
                 CharKey("x", "X", .leftRing),
                 CharKey("c", "C", .leftMiddle),
                 CharKey("v", "V", .leftIndex),
                 CharKey("b", "B", .leftIndex),
-                CharKey("n", "N", .rightIndex),
+                CharKey("n", "N", .rightIndex, altGr: "~"),
                 CharKey("m", "M", .rightIndex),
                 CharKey(",", ";", .rightMiddle),
                 CharKey(".", ":", .rightRing),

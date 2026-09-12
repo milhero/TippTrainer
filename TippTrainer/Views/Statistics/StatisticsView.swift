@@ -55,7 +55,7 @@ struct StatisticsView: View {
 
             Divider()
 
-            if records.isEmpty && tab != .comparison && tab != .fingers {
+            if records.isEmpty && tab != .comparison && tab != .fingers && tab != .progress {
                 ContentUnavailableView(
                     "Noch keine Daten",
                     systemImage: "chart.line.downtrend.xyaxis",

@@ -9,7 +9,7 @@ enum DictationToken {
     static let tab: Character = "→"
     /// Maximale Zeilenlänge im Wortdiktat, bevor umgebrochen wird.
     static let charactersUntilNewline = 35
-    /// Rest-Zeichen im Ticker, ab dem Nachschub angefordert wird.
+    /// Mindestvorrat an Zeichen vor der Schreibposition.
     static let charactersUntilRefresh = 25
 }
 
@@ -27,6 +27,16 @@ struct TrainingConfiguration {
     var requireBackspaceCorrection = false
     var beepOnError = true
     var intelligence = true
+}
+
+/// Ein geführter Lernschritt zu Beginn einer Lektion: eine Übungszeile mit
+/// Erklärung, welche Finger gefragt sind. Jede Schrittzeile endet im Diktat
+/// mit der Eingabetaste.
+struct LessonStep: Equatable, Sendable {
+    let title: String
+    let hint: String
+    let drill: String
+    let fingers: [Finger]
 }
 
 /// Tastatureingabe aus Sicht der Engine.
@@ -53,6 +63,7 @@ enum SessionState: Equatable {
 final class TrainingSession {
     let unit: LessonUnit
     let configuration: TrainingConfiguration
+    let steps: [LessonStep]
 
     private(set) var state: SessionState = .ready
     private(set) var strokes = 0
@@ -73,6 +84,8 @@ final class TrainingSession {
     private var dictationCharacters: [Character] = []
     private var oneErrorFlag = false
     private var lineLength = 0
+    /// Zeichenbereiche der Lernschritte im Diktattext (inklusive Zeilenende).
+    private var stepRanges: [Range<Int>] = []
 
     /// Fehlerwissen aus früheren Sitzungen — fließt in die Intelligenz ein,
     /// wird aber nicht erneut gespeichert (nur `characterStats` = Delta).
@@ -82,11 +95,13 @@ final class TrainingSession {
         segments: [TextSegment],
         unit: LessonUnit,
         configuration: TrainingConfiguration,
+        steps: [LessonStep] = [],
         initialStats: CharacterStats = CharacterStats(),
         seed: UInt64 = UInt64.random(in: UInt64.min...UInt64.max)
     ) {
         self.unit = unit
         self.configuration = configuration
+        self.steps = steps
         self.baselineStats = initialStats
         self.picker = SegmentPicker(
             segments: segments,
@@ -106,10 +121,8 @@ final class TrainingSession {
         return dictationCharacters[cursorIndex]
     }
 
-    /// Anzahl der bislang diktierten Zeichen (inklusive des aktuellen).
-    var dictatedCharacters: Int {
-        min(cursorIndex + 1, dictationCharacters.count)
-    }
+    /// Anzahl der bereits korrekt getippten Zeichen (= Schreibposition).
+    var typedCharacters: Int { cursorIndex }
 
     var points: Int {
         Scorer.points(strokes: strokes, errors: errors, seconds: elapsedSeconds)
@@ -117,6 +130,15 @@ final class TrainingSession {
 
     var strokesPerMinute: Double {
         Scorer.strokesPerMinute(strokes: strokes, seconds: elapsedSeconds)
+    }
+
+    /// Index des laufenden Lernschritts; `nil` im freien Üben.
+    var currentStepIndex: Int? {
+        stepRanges.firstIndex { $0.contains(cursorIndex) }
+    }
+
+    var currentStep: LessonStep? {
+        currentStepIndex.map { steps[$0] }
     }
 
     // MARK: - Steuerung
@@ -165,7 +187,11 @@ final class TrainingSession {
             }
             return
         }
-        guard let expected = currentCharacter else { return }
+        guard let expected = currentCharacter else {
+            // Kein Text mehr: die Lektion ist zu Ende.
+            finish()
+            return
+        }
 
         if matches(input, expected: expected) {
             oneErrorFlag = false
@@ -214,8 +240,8 @@ final class TrainingSession {
 
     private func advanceCursor() {
         cursorIndex += 1
-        recordCurrentCharacterOccurrence()
         refreshDictationIfNeeded()
+        recordCurrentCharacterOccurrence()
     }
 
     private func recordCurrentCharacterOccurrence() {
@@ -227,32 +253,53 @@ final class TrainingSession {
     // MARK: - Textversorgung
 
     private func assembleInitialText(from segments: [TextSegment]) {
-        if !configuration.intelligence {
-            // Ohne Intelligenz wird die Lektion sequenziell diktiert.
+        for step in steps {
+            let start = dictationCharacters.count
+            appendLine(step.drill)
+            stepRanges.append(start..<dictationCharacters.count)
+        }
+        if configuration.limit == .entireLesson {
+            // Ganze Lektion: alle Bausteine einmal in fester Reihenfolge,
+            // ohne unsichtbares Leerzeichen am Schluss.
             for segment in segments {
                 appendSegment(segment.text)
             }
-        } else if let intro = picker.firstSegment() {
-            appendSegment(intro.text)
+            if dictationCharacters.last == " " {
+                dictationCharacters.removeLast()
+            }
+        } else {
+            if let intro = picker.firstSegment() {
+                appendSegment(intro.text)
+            }
+            refreshDictationIfNeeded()
         }
     }
 
+    /// Hält – außer bei »ganze Lektion« – stets einen Vorrat von mindestens
+    /// `charactersUntilRefresh` Zeichen vor der Schreibposition, unabhängig
+    /// davon, ob die Intelligenz aktiv ist. (Früher gab es Nachschub nur
+    /// mit Intelligenz; ohne sie blieb die Sitzung nach dem letzten Zeichen
+    /// ohne Eingabemöglichkeit hängen.)
     private func refreshDictationIfNeeded() {
-        guard configuration.limit != .entireLesson,
-            configuration.intelligence,
-            dictationCharacters.count - cursorIndex
-                <= DictationToken.charactersUntilRefresh,
-            let next = picker.nextSegment(
+        guard configuration.limit != .entireLesson else { return }
+        while dictationCharacters.count - cursorIndex
+            <= DictationToken.charactersUntilRefresh {
+            guard let next = picker.nextSegment(
                 stats: baselineStats.merged(with: characterStats)
-            )
-        else { return }
-        appendSegment(next.text)
+            ) else { return }
+            appendSegment(next.text)
+        }
+    }
+
+    /// Hängt eine ganze Zeile an, die mit der Eingabetaste abgeschlossen wird.
+    private func appendLine(_ text: String) {
+        dictationCharacters.append(contentsOf: sanitized(text))
+        dictationCharacters.append(DictationToken.newline)
+        lineLength = 0
     }
 
     private func appendSegment(_ text: String) {
-        let sanitized = text.replacingOccurrences(
-            of: "\t", with: String(DictationToken.tab)
-        )
+        let sanitized = sanitized(text)
         dictationCharacters.append(contentsOf: sanitized)
         switch unit {
         case .sentence:
@@ -270,6 +317,10 @@ final class TrainingSession {
         }
     }
 
+    private func sanitized(_ text: String) -> String {
+        text.replacingOccurrences(of: "\t", with: String(DictationToken.tab))
+    }
+
     // MARK: - Limits
 
     private func checkLimits() {
@@ -277,9 +328,14 @@ final class TrainingSession {
         case .time(let minutes):
             if elapsedSeconds >= minutes * 60 { finish() }
         case .characters(let count):
-            if dictatedCharacters >= count { finish() }
+            if cursorIndex >= count { finish() }
         case .entireLesson:
-            if cursorIndex >= dictationCharacters.count { finish() }
+            break
+        }
+        // Sicherheitsnetz: Ist kein Text mehr da, ist die Lektion vorbei —
+        // sonst bliebe die Sitzung ohne Eingabemöglichkeit hängen.
+        if state == .running, cursorIndex >= dictationCharacters.count {
+            finish()
         }
     }
 }

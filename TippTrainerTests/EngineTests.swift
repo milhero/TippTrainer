@@ -250,14 +250,15 @@ struct TrainingSessionTests {
         #expect(session.state == .finished)
     }
 
-    @Test func characterLimitFinishesTheSession() {
+    @Test func characterLimitFinishesAfterTheNthTypedCharacter() {
         let session = makeSession(segments: ["abcdef", "ghijkl"], limit: .characters(3))
         session.handleKey(.character(" "))
         session.handleKey(.character("a"))
         session.handleKey(.character("b"))
+        #expect(session.state == .running)
         session.handleKey(.character("c"))
-        session.tick()
         #expect(session.state == .finished)
+        #expect(session.typedCharacters == 3)
     }
 
     @Test func entireLessonFinishesAtTheEnd() {
@@ -284,17 +285,94 @@ struct TrainingSessionTests {
         #expect(lines.allSatisfy { $0.count <= 41 })
     }
 
-    @Test func runningLowOnTextExtendsTheDictation() {
+    /// Tippt das jeweils erwartete Zeichen (inklusive Zeilenenden).
+    private func typeExpected(_ session: TrainingSession, count: Int) {
+        for _ in 0..<count {
+            guard let expected = session.currentCharacter else { return }
+            switch expected {
+            case DictationToken.newline: session.handleKey(.enter)
+            case DictationToken.tab: session.handleKey(.tab)
+            default: session.handleKey(.character(expected))
+            }
+        }
+    }
+
+    @Test func keepsASupplyOfTextAheadOfTheCursor() {
         let session = makeSession(
             segments: ["abcdefghij", "klmnopqrst", "uvwxyzabcd", "efghijklmn"],
             unit: .sentence
         )
         session.handleKey(.character(" "))
-        let initialLength = session.dictationText.count
-        // Intro ist kurz: Nach dem ersten Zeichen muss Nachschub kommen,
-        // sobald weniger als 25 Zeichen verbleiben.
-        session.handleKey(.character("a"))
-        #expect(session.dictationText.count > initialLength)
+        for _ in 1...80 {
+            let remaining = session.dictationText.count - session.typedCharacters
+            #expect(remaining > DictationToken.charactersUntilRefresh)
+            typeExpected(session, count: 1)
+        }
+    }
+
+    /// Regressionstest für den gemeldeten Hänger: Ohne Intelligenz war
+    /// nach dem letzten Baustein der Lektion kein Text mehr da, Eingaben
+    /// wurden verworfen und nur das Zeitlimit beendete die Sitzung.
+    @Test func withoutIntelligenceTheDictationNeverRunsDry() {
+        let session = makeSession(
+            segments: ["asdf jklö", "fj", "dk", "sl"], unit: .word,
+            limit: .time(minutes: 5), intelligence: false
+        )
+        session.handleKey(.character(" "))
+        typeExpected(session, count: 300)
+        #expect(session.state == .running)
+        #expect(session.strokes == 300)
+        #expect(session.currentCharacter != nil)
+    }
+
+    @Test func withoutIntelligenceSegmentsFollowLessonOrder() {
+        let session = makeSession(
+            segments: ["intro", "eins", "zwei", "drei"], unit: .sentence,
+            intelligence: false
+        )
+        session.handleKey(.character(" "))
+        #expect(session.dictationText.hasPrefix("intro¶eins¶zwei¶drei¶eins¶"))
+    }
+
+    @Test func entireLessonInWordModeEndsWithTheLastRealCharacter() {
+        let session = makeSession(
+            segments: ["fj", "dk"], unit: .word, limit: .entireLesson,
+            intelligence: false
+        )
+        #expect(session.dictationText == "fj dk")
+        session.handleKey(.character(" "))
+        typeExpected(session, count: 5)
+        #expect(session.state == .finished)
+    }
+
+    @Test func sessionFinishesWhenTheTextIsExhausted() {
+        // Zeitlimit, aber der Text geht aus (leere Bausteinliste nach der
+        // Intro-Zeile): Die Sitzung darf nicht ohne Eingabemöglichkeit hängen.
+        let session = makeSession(segments: [], unit: .sentence)
+        session.handleKey(.character(" "))
+        session.handleKey(.character("x"))
+        #expect(session.state == .finished)
+    }
+
+    @Test func guidedStepsComeFirstAndEndWithEnter() {
+        let steps = [
+            LessonStep(title: "f und j", hint: "", drill: "fff jjj", fingers: [.leftIndex, .rightIndex]),
+            LessonStep(title: "d und k", hint: "", drill: "ddd kkk", fingers: [.leftMiddle, .rightMiddle]),
+        ]
+        let config = TrainingConfiguration(limit: .time(minutes: 5), intelligence: true)
+        let session = TrainingSession(
+            segments: [TextSegment(id: 0, text: "asdf jklö"), TextSegment(id: 1, text: "fj")],
+            unit: .word, configuration: config, steps: steps, seed: 1
+        )
+        #expect(session.dictationText.hasPrefix("fff jjj¶ddd kkk¶asdf jklö "))
+        session.handleKey(.character(" "))
+        #expect(session.currentStepIndex == 0)
+        #expect(session.currentStep == steps[0])
+        typeExpected(session, count: 8) // "fff jjj" + Eingabe
+        #expect(session.currentStepIndex == 1)
+        typeExpected(session, count: 8)
+        #expect(session.currentStep == nil) // freies Üben
+        #expect(session.state == .running)
     }
 
     @Test func stateChangesAreObservable() {

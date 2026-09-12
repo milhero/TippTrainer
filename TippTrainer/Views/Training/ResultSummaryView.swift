@@ -1,20 +1,32 @@
 import SwiftUI
 
-/// Kurz-Auswertung direkt nach einer Trainingseinheit.
+/// Kurz-Auswertung direkt nach einer Trainingseinheit: Kennzahlen,
+/// Vergleich mit dem bisherigen Bestwert und die schwächsten Zeichen.
 struct ResultSummaryView: View {
     let lessonTitle: String
     let session: TrainingSession
+    /// Bester bisher gespeicherter Punktwert dieser Lektion.
+    let previousBestPoints: Int?
     let onDone: (_ save: Bool) -> Void
+
+    private var isRecord: Bool {
+        session.strokes > 0 && (previousBestPoints.map { session.points > $0 } ?? true)
+    }
 
     var body: some View {
         VStack(spacing: 20) {
-            Image(systemName: "checkmark.seal.fill")
+            Image(systemName: isRecord ? "trophy.fill" : "checkmark.seal.fill")
                 .font(.system(size: 42))
-                .foregroundStyle(.tint)
+                .foregroundStyle(isRecord ? AnyShapeStyle(.yellow) : AnyShapeStyle(.tint))
                 .symbolEffect(.bounce, value: session.points)
 
-            Text(lessonTitle)
-                .font(.title2.bold())
+            VStack(spacing: 4) {
+                Text(lessonTitle)
+                    .font(.title2.bold())
+                Text(comparisonText)
+                    .font(.callout)
+                    .foregroundStyle(isRecord ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+            }
 
             Grid(horizontalSpacing: 36, verticalSpacing: 12) {
                 GridRow {
@@ -32,7 +44,7 @@ struct ResultSummaryView: View {
                             format: "%.1f %%",
                             Scorer.errorRate(
                                 errors: session.errors,
-                                characters: max(1, session.dictatedCharacters - 1)
+                                characters: max(1, session.typedCharacters)
                             )
                         )
                     )
@@ -46,7 +58,26 @@ struct ResultSummaryView: View {
                     )
                 }
             }
-            .padding(.vertical, 8)
+            .padding(.vertical, 4)
+
+            let worst = session.characterStats.worstCharacters(limit: 5)
+            if !worst.isEmpty {
+                VStack(spacing: 8) {
+                    Text("Schwierige Zeichen in dieser Lektion")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    HStack(spacing: 8) {
+                        ForEach(Array(worst.enumerated()), id: \.offset) { _, character in
+                            HStack(spacing: 5) {
+                                KeyChip(character: character)
+                                Text(String(format: "%.0f %%", session.characterStats.errorRate(of: character)))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+            }
 
             HStack {
                 Button("Verwerfen", role: .cancel) { onDone(false) }
@@ -56,7 +87,19 @@ struct ResultSummaryView: View {
             }
         }
         .padding(32)
-        .frame(minWidth: 420)
+        .frame(minWidth: 440)
+    }
+
+    private var comparisonText: String {
+        guard session.strokes > 0 else { return "Keine Anschläge – nichts zu speichern." }
+        guard let best = previousBestPoints else { return "Dein erstes Ergebnis in dieser Lektion." }
+        if session.points > best {
+            return "Neuer Bestwert! Bisher \(best) Punkte."
+        }
+        if session.points == best {
+            return "Bestwert eingestellt (\(best) Punkte)."
+        }
+        return "Bestwert: \(best) Punkte – noch \(best - session.points) Punkte dahinter."
     }
 
     private func metric(_ label: String, _ value: String) -> some View {
